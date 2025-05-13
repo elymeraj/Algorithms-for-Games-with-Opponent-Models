@@ -8,6 +8,8 @@ class AdversaireRandom(Adversaire):
     
     def choisir_coup(self, jeu):
         coups_possibles = jeu.coups_possibles()
+        if not coups_possibles and hasattr(jeu, 'piocher'):
+            jeu.piocher()
         if not coups_possibles:
             print("L'adversaire ne peut pas jouer.")
             return None

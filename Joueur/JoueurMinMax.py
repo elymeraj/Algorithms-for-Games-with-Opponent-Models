@@ -12,7 +12,9 @@ class JoueurMinMax(Joueur):
         """
         MinMax avec plusieurs modèles d'adversaires, l'approche Max-Min-Expectimax.
         """
-        coups = jeu.coups_possibles()
+        coups = jeu.coups_possibles()    
+        if not coups and hasattr(jeu, 'piocher'):
+            jeu.piocher()
         if not coups:
             return None
 
@@ -23,7 +25,7 @@ class JoueurMinMax(Joueur):
             copie_jeu = jeu.copie()
             copie_jeu.jouer(coup)
             
-            #pour chaque modele d'adversaire credible, calculer l'évaluationminimale
+            # Pour chaque modèle d'adversaire crédible, calculer l'évaluation minimale
             eval_min = float('inf')
             for modele in self.modeles_credibles:
                 eval = self._minimax(copie_jeu, self.profondeur - 1, False, modele)
@@ -36,14 +38,20 @@ class JoueurMinMax(Joueur):
         return meilleur_coup
 
     def _minimax(self, jeu, profondeur, maximisant, modele_adversaire):
-        if jeu.est_termine() or profondeur == 0:
+        # Vérification de fin de jeu
+        if jeu.est_termine():
+            return jeu.jeu_termine_score()
+        
+        if profondeur == 0:
             return jeu.evaluation()
 
         coups = jeu.coups_possibles()
+        if not coups and hasattr(jeu, 'piocher'):
+            jeu.piocher()
         if not coups:
             return jeu.evaluation()
 
-        if maximisant: # on a le meme probleme ici comme en minmax2, la meme correction
+        if maximisant:
             meilleure_eval = float('-inf')
             for coup in coups:
                 copie_jeu = jeu.copie()
@@ -60,6 +68,9 @@ class JoueurMinMax(Joueur):
                 # Expectimax
                 evaluation_ponderee = 0
                 total_proba = sum(distribution_proba.values())
+                
+                if total_proba <= 0:
+                    return jeu.evaluation()
 
                 for coup, proba in distribution_proba.items():
                     if proba > 0:
@@ -70,7 +81,6 @@ class JoueurMinMax(Joueur):
                 
                 return evaluation_ponderee
             else:
-                #le MinMax classique pour les modeles déterministes
                 coup_predit = max(distribution_proba, key=distribution_proba.get)
                 copie_jeu = jeu.copie()
                 copie_jeu.jouer(coup_predit)
@@ -78,13 +88,13 @@ class JoueurMinMax(Joueur):
 
     def informer_coup_adversaire(self, jeu, coup):
         """
-        met à jour la liste des modeles credibles en fonction du coup joué par l'adversaire
+        Met à jour la liste des modèles crédibles en fonction du coup joué par l'adversaire
         """
         modeles_a_eliminer = []
         for modele in self.modeles_credibles:
             distribution = modele.choisir_coup(jeu)
             if not distribution:
-                continue  #aucun coup possible pour ce modèle, on ne l'élimine pas 
+                continue
             if coup not in distribution or distribution[coup] == 0:
                 modeles_a_eliminer.append(modele)
 
@@ -92,4 +102,7 @@ class JoueurMinMax(Joueur):
             self.modeles_credibles.remove(modele)
             print(f"Modèle {modele.__class__.__name__} éliminé car incompatible avec le coup {coup}")
             
-
+        # verifier que y'a toutjours au moins un modèle crédible
+        if not self.modeles_credibles:
+            raise RuntimeError("Plus aucun modèle crédible après le coup adverse : comportement inattendu de l'adversaire")
+        

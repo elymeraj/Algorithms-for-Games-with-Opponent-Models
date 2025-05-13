@@ -6,13 +6,16 @@ class JoueurMinMax2(Joueur):
     def __init__(self, profondeur=3):
         super().__init__()
         self.profondeur = profondeur
-        self.modeles_credibles = []  # Liste des modèles d'adversaires considérés comme crédibles
+        self.modeles_credibles = []  #liste des modèles d'adversaires consideres comme crédibles
     
     def choisir_coup(self, jeu):
         """
-        MinMax avec plusieurs modèles d'adversaires, l'approche Max-Min-Expectimax.
+        MinMax avec plusieurs modèles d'adversaires, approche réaliste qui considère
+        les modèles adverses compatibles avec chaque coup possible
         """
         coups = jeu.coups_possibles()
+        if not coups and hasattr(jeu, 'piocher'):
+            jeu.piocher()
         if not coups:
             return None
 
@@ -20,31 +23,15 @@ class JoueurMinMax2(Joueur):
         meilleure_eval = float('-inf')
 
         for coup in coups:
+            #onn copie le jeu pour simuler le coup
             copie_jeu = jeu.copie()
             copie_jeu.jouer(coup)
             
-            tous_les_coups = set()
-            for modele in self.modeles_credibles:
-                distribution = modele.choisir_coup(jeu)
-                if distribution:
-                    tous_les_coups.update(distribution.keys())
-
-            meilleure_eval = float('-inf')
-            for coup in tous_les_coups: # a editer aussi, ici ya pas de question de mod adversaire, donc ca vient a supprimer plaind de lignes
-                sous_modeles = [m for m in self.modeles_credibles if m.choisir_coup(jeu) and coup in m.choisir_coup(jeu)]
-
-                if not sous_modeles:
-                    continue
-
-                copie_jeu = jeu.copie()
-                copie_jeu.jouer(coup)
-            
-            
-                eval_min = self._minimax(copie_jeu, self.profondeur - 1, False, sous_modeles)
-                
-                if eval_min > meilleure_eval:
-                    meilleure_eval = eval_min
-                    meilleur_coup = coup
+            #on évalue le jeu après le coup joué
+            eval_min = self._minimax(copie_jeu, self.profondeur-1, False, self.modeles_credibles)
+            if eval_min > meilleure_eval:
+                meilleure_eval = eval_min
+                meilleur_coup = coup
 
         return meilleur_coup
 
@@ -54,80 +41,85 @@ class JoueurMinMax2(Joueur):
 
         :param modeles_credibles: Liste des modèles crédibles à ce niveau.
         """
-        if jeu.est_termine() or profondeur == 0:
+        if jeu.est_termine():
+            return jeu.jeu_termine_score()
+            
+        if profondeur == 0:
             return jeu.evaluation()
 
         if maximisant:
-            tous_les_coups = set()
-            for modele in modeles_credibles:
-                distribution = modele.choisir_coup(jeu)
-                if distribution:
-                    tous_les_coups.update(distribution.keys())
+            coups = jeu.coups_possibles()
+            if not coups and hasattr(jeu, 'piocher'):
+                jeu.piocher()
+            if not coups:
+                return jeu.evaluation()  # Plus de coups possibles
 
             meilleure_eval = float('-inf')
-            for coup in tous_les_coups:
-                sous_modeles = [m for m in modeles_credibles if m.choisir_coup(jeu) and coup in m.choisir_coup(jeu)] #il faut decaler cette ligne
-
-                if not sous_modeles:
-                    continue
-
+            for coup in coups:
+                # On copie le jeu pour simuler le coup
                 copie_jeu = jeu.copie()
                 copie_jeu.jouer(coup)
 
-                eval = self._minimax(copie_jeu, profondeur - 1, False, sous_modeles)
-                meilleure_eval = max(meilleure_eval, eval)
+                # On évalue le jeu après le coup joué
+                eval_min = self._minimax(copie_jeu, profondeur-1, False, modeles_credibles)
+                meilleure_eval = max(meilleure_eval, eval_min)
 
             return meilleure_eval
 
         else:
-            eval_min = float('inf')
-
+            #pour chaque coup possible selon les modèles crédibles,
+            #on ne considère que les modèles pour lesquels ce coup est probable
+            tous_les_coups = set()
             for modele_adversaire in modeles_credibles:
-                distribution_proba = modele_adversaire.choisir_coup(jeu)
-                if not distribution_proba:
-                    continue
+                distribution = modele_adversaire.choisir_coup(jeu)
+                if distribution:
+                    tous_les_coups.update(distribution.keys()) 
+            
+            if not tous_les_coups:
+                return jeu.evaluation()  #aucun coup possible pour les modèles crédibles
+                
+            eval_min = float('inf')
+            for coup in tous_les_coups:
+                #on ne considère que les modèles qui auraient pu jouer ce coup
+                sous_modeles = []
+                for modele in modeles_credibles:
+                    distribution = modele.choisir_coup(jeu)
+                    if distribution and coup in distribution and distribution[coup] > 0:
+                        sous_modeles.append(modele)
+                
+                if not sous_modeles:
+                    continue  #aucun modèle ne prédit ce coup, on passe au suivant
+                
+                copie_jeu = jeu.copie()
+                copie_jeu.jouer(coup)
 
-                if modele_adversaire.aleatoire:
-                    evaluation_ponderee = 0
-                    total_proba = sum(distribution_proba.values())
+                eval = self._minimax(copie_jeu, profondeur-1, True, sous_modeles)
+                eval_min = min(eval_min, eval)
 
-                    for coup, proba in distribution_proba.items(): 
-                        if proba > 0:
-                            copie_jeu = jeu.copie() # c'est la ou il faut que je calcule les sous-models, notre sous modele apres va servire dans la recursion
-                            copie_jeu.jouer(coup)
-                            eval = self._minimax(copie_jeu, profondeur - 1, True, modeles_credibles)
-                            evaluation_ponderee += (proba / total_proba) * eval
-
-                    eval_min = min(eval_min, evaluation_ponderee)
-
-                else: #si le modele adv n'est pas aleatoire, dans ce cas il faut ecrire ce que le prof ecrit dans la feuille
-                    # il fait faire:
-                    # else: assert len (distribution_proba) == 1
-                    # coup_predit = next(iter(distribution_proba.keys()))
-                    coup_predit = max(distribution_proba, key=distribution_proba.get)
-                    copie_jeu = jeu.copie() #ecoute l'enrregistrement du prof, donc il y a pkus de sous-modele
-                    copie_jeu.jouer(coup_predit)
-                    eval = self._minimax(copie_jeu, profondeur - 1, True, modeles_credibles)
-                    eval_min = min(eval_min, eval)
-
-            return eval_min if eval_min != float('inf') else jeu.evaluation()
+            #si aucun coup n'a pu etre evalue on renvoie l'évaluation actuelle
+            if eval_min == float('inf'):
+                return jeu.evaluation()
+                
+            return eval_min
 
     def informer_coup_adversaire(self, jeu, coup):
         """
-        met à jour la liste des modeles credibles en fonction du coup joué par l'adversaire
+        Met à jour la liste des modèles crédibles en fonction du coup joué par l'adversaire
         """
         modeles_a_eliminer = []
         for modele in self.modeles_credibles:
             distribution = modele.choisir_coup(jeu)
             if not distribution:
-                continue  #aucun coup possible pour ce modèle, on ne l'élimine pas 
+                continue  #aucun coup possible pour ce modèle donc on ne l'élimine pas 
             if coup not in distribution or distribution[coup] == 0:
                 modeles_a_eliminer.append(modele)
 
         for modele in modeles_a_eliminer:
             self.modeles_credibles.remove(modele)
-            print(f"Modèle {modele.__class__.__name__} éliminé car incompatible avec le coup {coup}")#
+            print(f"Modèle {modele.__class__.__name__} éliminé car incompatible avec le coup {coup}")
             
-
+        #s'assurer qu'il reste au moins un modèle crédible
+        if not self.modeles_credibles:
+            raise RuntimeError("Plus aucun modèle crédible après le coup adverse : comportement inattendu de l'adversaire")
 
 

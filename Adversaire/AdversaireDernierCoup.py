@@ -1,27 +1,3 @@
-# from Adversaire.Adversaire import Adversaire
-
-# class AdversaireDernierCoup(Adversaire):
-    
-#     def __init__(self):
-#         super().__init__(aleatoire = False )
-    
-#     def choisir_coup(self, jeu):
-#         coups = jeu.coups_possibles()
-#         if not coups:
-#             return None
-#         res = self.distribution_probabilites(coups)
-#         return res
-    
-    
-#     def distribution_probabilites(self, coups):
-#         res = {}
-#         for x in range(len(coups)):
-#             if x == len(coups) - 1:
-#                 res[coups[x]] = 1
-#             else:
-#                 res[coups[x]] = 0
-#         return res
-
 from Adversaire.Adversaire import Adversaire
 
 class AdversaireDernierCoup(Adversaire):
@@ -42,6 +18,8 @@ class AdversaireDernierCoup(Adversaire):
             Dictionnaire {coup: probabilité} ou None si aucun coup possible
         """
         coups = jeu.coups_possibles()
+        if not coups and hasattr(jeu, 'piocher'):
+            jeu.piocher()
         if not coups:
             return None
         return self.distribution_probabilites(coups)

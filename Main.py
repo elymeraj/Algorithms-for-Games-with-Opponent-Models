@@ -18,11 +18,11 @@ def creer_modeles_adversaires():
     ]
 
 def choisir_adversaire():
-    print("\nChoisissez le modele d'adversaire réel contre lequel MinMax va jouer :")
-    print("1 - Adversaire Random (débutant)")
-    print("2 - Adversaire Premier Coup (intermédiaire)")
-    print("3 - Adversaire Dernier Coup (intermédiaire)")
-    print("4 - Adversaire Fort Domino (expert, uniquement Domino)")
+    print("\nChoisissez le modèle d'adversaire contre lequel MinMax va jouer :")
+    print("1 - Adversaire Random")
+    print("2 - Adversaire Premier Coup")
+    print("3 - Adversaire Dernier Coup")
+    print("4 - Adversaire Fort Domino (uniquement Domino)")
     choix = input("Entrez votre choix (1/2/3/4) : ").strip()
 
     if choix == "1":
@@ -38,7 +38,7 @@ def choisir_adversaire():
         return AdversaireRandom()
 
 def lancer_partie(jeu, joueur1, joueur2):
-    print("\n=== Début de la partie ===")
+    print("\n=== Debut de la partie ===")
     jeu.afficher_etat()
 
     while not jeu.est_termine():
@@ -69,15 +69,16 @@ def lancer_partie(jeu, joueur1, joueur2):
         else:
             print("Match nul !")
     else:
-        if jeu.evaluation() == 10:
+        gagnant = jeu.qui_gagne()
+        if gagnant == 'X':
             print("Victoire du Joueur 1 (X / MinMax) !")
-        elif jeu.evaluation() == -10:
+        elif gagnant == 'O':
             print("Victoire du Joueur 2 (O / Adversaire) !")
         else:
             print("Match nul !")
 
 
-def test_experience(jeu_type, minmax,nb_iterations=100):
+def test_experience(jeu_type, minmax, nb_iterations=100):
     adversaire_modele = choisir_adversaire()
 
     minmax_victoires = 0
@@ -85,13 +86,18 @@ def test_experience(jeu_type, minmax,nb_iterations=100):
     nuls = 0
 
     for i in range(nb_iterations):
-        joueur_minmax = minmax
+        print(f"\nPartie {i+1}/{nb_iterations}")
+        
+        #rinitialiser lesjoueurs pour chaque partie
+        joueur_minmax = minmax.__class__(profondeur=minmax.profondeur)
         joueur_minmax.modeles_credibles = creer_modeles_adversaires()
         joueur_adversaire = JoueurAdversaire(adversaire_modele)
 
         jeu = Domino() if jeu_type == "D" else Morpion()
+
         lancer_partie(jeu, joueur_minmax, joueur_adversaire)
 
+        #calculer les stats
         if isinstance(jeu, Domino):
             jeu.calculer_score_final()
             if jeu.score_joueur1 > jeu.score_joueur2:
@@ -101,33 +107,34 @@ def test_experience(jeu_type, minmax,nb_iterations=100):
             else:
                 nuls += 1
         else:
-            if jeu.evaluation() == 10:
+            gagnant = jeu.qui_gagne()
+            if gagnant == 'X':
                 minmax_victoires += 1
-            elif jeu.evaluation() == -10:
+            elif gagnant == 'O':
                 adversaire_victoires += 1
             else:
                 nuls += 1
 
-    print(f"\nRésultat après {nb_iterations} parties ({'Domino' if jeu_type == 'D' else 'Morpion'}) :")
-    print(f"Victoire MinMax      : {minmax_victoires}")
-    print(f"Victoire Adversaire  : {adversaire_victoires}")
-    print(f"Matchs nuls          : {nuls}")
+    print(f"\nResultat apres {nb_iterations} parties ({'Domino' if jeu_type == 'D' else 'Morpion'}) :")
+    print(f"Victoire MinMax      : {minmax_victoires} ({minmax_victoires/nb_iterations*100:.1f}%)")
+    print(f"Victoire Adversaire  : {adversaire_victoires} ({adversaire_victoires/nb_iterations*100:.1f}%)")
+    print(f"Matchs nuls          : {nuls} ({nuls/nb_iterations*100:.1f}%)")
 
 if __name__ == "__main__":
     print("Que souhaitez-vous faire ?")
     print("1 - Lancer une partie")
-    print("2 - Lancer les experiences statistiques (100 parties)")
+    print("2 - Lancer les expériences statistiques")
 
     mode = input("Entrez votre choix (1/2) : ").strip()
 
     if mode == "1":
-        print("\nChoisissez le jeu :")
+        print("\nchoisissez le jeu :")
         print("D - Domino")
         print("M - Morpion")
         jeu_choix = input("Entrez votre choix (D/M) : ").strip().upper()
         
-        print("\n Choisissez L'algo MinMax :")
-        print("1 - MinMax approximatif")
+        print("\nchoisissez l'algorithme MinMax :")
+        print("1 - MinMax predictif")
         print("2 - MinMax réaliste")
         choix_minmax = input("Entrez votre choix (1/2) : ").strip()
         
@@ -136,7 +143,7 @@ if __name__ == "__main__":
         elif choix_minmax == "2":
             joueur_minmax = JoueurMinMax2(profondeur=3)
         else:
-            print("Choix invalide, MinMax approximatif sera utilisé par défaut.")
+            print("Choix invalide, MinMax predictif sera utilisé par défaut.")
             joueur_minmax = JoueurMinMax(profondeur=3)
             
         joueur_minmax.modeles_credibles = creer_modeles_adversaires()
@@ -144,7 +151,7 @@ if __name__ == "__main__":
         adversaire_modele = choisir_adversaire()
 
         if jeu_choix == "M" and isinstance(adversaire_modele, AdversaireDominoFort):
-            print("\n[ATTENTION] AdversaireDominoFort ne fonctionne que pour Domino")
+            print("\n!!!AdversaireDominoFort ne fonctionne que pour Domino")
             print("L'adversaire sera remplacé par AdversaireRandom")
             adversaire_modele = AdversaireRandom()
 
@@ -158,42 +165,40 @@ if __name__ == "__main__":
             print("Choix invalide")
             exit()
 
-        # Lancer la partie, la fin de partie est gérée dans cette fonction
         lancer_partie(jeu, joueur_minmax, joueur_adversaire)
 
     elif mode == "2":
         print("\nMode test statistique !")
-        print("1 - Lancer 100 parties de Domino")
-        print("2 - Lancer 100 parties de Morpion")
+        print("1 - Lancer les parties de Domino")
+        print("2 - Lancer les parties de Morpion")
         print("3 - Lancer les deux expériences")
         choix_stat = input("Entrez votre choix (1/2/3) : ").strip()
         
-        print("\n Choisissez L'algo MinMax :")
-        print("1 - MinMax approximatif")
+        print("\nChoisissez l'algorithme MinMax :")
+        print("1 - MinMax predictif")
         print("2 - MinMax réaliste")
         choix_minmax = input("Entrez votre choix (1/2) : ").strip()
+        
+        print("\nCombien de parties souhaitez-vous lancer ?")
+        nb_parties = int(input("Nombre de parties (défaut: 100) : ") or "100")
         
         if choix_minmax == "1":
             joueur_minmax = JoueurMinMax(profondeur=3)
         elif choix_minmax == "2":
             joueur_minmax = JoueurMinMax2(profondeur=3)
         else:
-            print("Choix invalide, MinMax approximatif sera utilisé par défaut.")
+            print("Choix invalide, MinMax predictif sera utilisé par défaut.")
             joueur_minmax = JoueurMinMax(profondeur=3)
         
-
         if choix_stat == "1":
-            test_experience(jeu_type="D", minmax=joueur_minmax, nb_iterations=100)
+            test_experience(jeu_type="D", minmax=joueur_minmax, nb_iterations=nb_parties)
         elif choix_stat == "2":
-            test_experience(jeu_type="M", minmax=joueur_minmax, nb_iterations=100)
+            test_experience(jeu_type="M", minmax=joueur_minmax, nb_iterations=nb_parties)
         elif choix_stat == "3":
-            test_experience(jeu_type="D", minmax=joueur_minmax, nb_iterations=100)
-            test_experience(jeu_type="M", minmax=joueur_minmax, nb_iterations=100)
+            test_experience(jeu_type="D", minmax=joueur_minmax, nb_iterations=nb_parties)
+            test_experience(jeu_type="M", minmax=joueur_minmax, nb_iterations=nb_parties)
         else:
             print("Choix invalide")
     else:
         print("Choix invalide")
-        
-        
-# 
 

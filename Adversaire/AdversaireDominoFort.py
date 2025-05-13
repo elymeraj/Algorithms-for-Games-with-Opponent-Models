@@ -10,6 +10,8 @@ class AdversaireDominoFort(Adversaire):
     
     def choisir_coup(self, jeu):
         coups = jeu.coups_possibles()
+        if not coups and hasattr(jeu, 'piocher'):
+            jeu.piocher()        
         if not coups:
             return None
         

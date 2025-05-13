@@ -31,3 +31,7 @@ class Jeu:
     def joueur_suivant(self):
         """Passe au joueur suivant."""
         raise NotImplementedError
+
+    def jeu_termine_score(self):
+        """Retourne le score de fin de partie."""
+        raise NotImplementedError
